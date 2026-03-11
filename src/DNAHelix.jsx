@@ -132,8 +132,8 @@ function HelixScene({ step = 0 }) {
     <>
       {/* ── DNA Helix group ──────────────────────────────── */}
       <FadeGroup ref={groupRef} opacityRef={helixOpacityRef}>
-        <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} side={1} />
-        <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} side={-1} />
+        <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} />
+        <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} isTemplate />
 
         {TEMPLATE.map((base, i) => (
           <BasePair key={i} index={i}
@@ -237,22 +237,32 @@ const FadeGroup = forwardRef(function FadeGroup({ opacityRef, children }, ref) {
 })
 
 // ── Backbone strand ──────────────────────────────────────────
-function BackboneStrand({ curve, positions, separationRef, side }) {
+// Both strands move OUTWARD (radially away from center) when unzipping.
+// Template backbone fades to lower opacity like its bases.
+function BackboneStrand({ curve, positions, separationRef, isTemplate = false }) {
   const meshRef = useRef()
+  const matRef = useRef()
   const tubeSegments = 64
 
   useFrame(() => {
     if (!meshRef.current) return
     const pts = positions.map((pos, i) => {
       const sep = separationRef.current[i]
+      // Always push outward along the strand's own angle
       const dx = Math.cos(pos.angle) * sep * UNZIP_EXTRA
       const dz = Math.sin(pos.angle) * sep * UNZIP_EXTRA
-      return new THREE.Vector3(pos.x + dx * side, pos.y, pos.z + dz * side)
+      return new THREE.Vector3(pos.x + dx, pos.y, pos.z + dz)
     })
     const newCurve = new THREE.CatmullRomCurve3(pts)
     const newGeom = new THREE.TubeGeometry(newCurve, tubeSegments, BACKBONE_RADIUS, 8, false)
     meshRef.current.geometry.dispose()
     meshRef.current.geometry = newGeom
+
+    // Fade template backbone with separation
+    if (isTemplate && matRef.current) {
+      const avgSep = separationRef.current.reduce((a, b) => a + b, 0) / positions.length
+      matRef.current.opacity = 1 - avgSep * 0.75
+    }
   })
 
   const initialGeom = useMemo(
@@ -262,7 +272,8 @@ function BackboneStrand({ curve, positions, separationRef, side }) {
 
   return (
     <mesh ref={meshRef} geometry={initialGeom}>
-      <meshStandardMaterial color="#8b9dc3" emissive="#4a5578" emissiveIntensity={0.4} roughness={0.4} metalness={0.4} />
+      <meshStandardMaterial ref={matRef} color="#8b9dc3" emissive="#4a5578" emissiveIntensity={0.4}
+        roughness={0.4} metalness={0.4} transparent={isTemplate} opacity={1} />
     </mesh>
   )
 }
@@ -868,8 +879,8 @@ function LabScene({ template, active, onComplete }) {
 
   return (
     <group ref={groupRef}>
-      <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} side={1} />
-      <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} side={-1} />
+      <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} />
+      <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} isTemplate />
 
       {template.map((base, i) => (
         <BasePair key={i} index={i}
