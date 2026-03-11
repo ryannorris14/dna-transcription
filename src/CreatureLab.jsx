@@ -342,8 +342,8 @@ export default function CreatureLab() {
             onComplete={handleTranscriptionComplete}
           />
           <div className="transcription-status">
-            {transcribing ? 'Helicase unzipping → RNA Polymerase reading template...' :
-             isAnimating ? 'Building protein...' :
+            {transcribing ? 'Helicase → RNA Polymerase → Ribosome → Protein Folding...' :
+             isAnimating ? 'Building creature...' :
              dirty ? 'Press Go! to transcribe' :
              'Edit DNA to begin'}
           </div>

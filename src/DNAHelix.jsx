@@ -2,7 +2,7 @@ import { useRef, useMemo, useState, useEffect, forwardRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { BASE_COLORS, transcribe, getCodingStrand } from './biology'
+import { BASE_COLORS, transcribe, getCodingStrand, splitCodons, translateAll } from './biology'
 
 const NUM_PAIRS = 15
 const HELIX_RADIUS = 1.2
@@ -771,20 +771,45 @@ export default function DNAHelix({ step = 0, className = '' }) {
 // ══════════════════════════════════════════════════════════════
 
 const LAB_SPEED = 120 // ms per base pair — fast for iteration
+const LAB_TRANSLATE_SPEED = 300 // ms per codon during translation
 
+// Broader palette for amino acid colors in lab mode
+const LAB_AA_COLORS = {
+  Met: '#ffa502', Gln: '#1dd1a1', Tyr: '#10ac84', Ala: '#ff6b6b',
+  Ser: '#0abde3', Thr: '#48dbfb', Asn: '#00d2d3', Leu: '#ee5a24',
+  Val: '#ff9f43', Ile: '#f368e0', Phe: '#e056fd', Trp: '#be2edd',
+  Pro: '#fd79a8', Cys: '#01a3a4', Lys: '#feca57', Arg: '#ff9ff3',
+  His: '#f9ca24', Asp: '#ff6348', Glu: '#eb4d4b', Gly: '#c8d6e5',
+}
+
+// Phases: idle → helicase → polymerase → drift → translation → folding → done
 function LabScene({ template, active, onComplete }) {
   const groupRef = useRef()
   const separationRef = useRef(new Float32Array(NUM_PAIRS).fill(0))
   const [helicaseFront, setHelicaseFront] = useState(-1)
   const [polyFront, setPolyFront] = useState(-1)
   const [mRNABuilt, setMRNABuilt] = useState(0)
-  const [phase, setPhase] = useState('idle') // idle | helicase | polymerase | done
+  const [phase, setPhase] = useState('idle')
+  const [ribosomePos, setRibosomePos] = useState(0)
+  const [aasBuilt, setAasBuilt] = useState(0)
+  const [folding, setFolding] = useState(false)
   const completedRef = useRef(false)
+
+  // Crossfade refs
+  const helixOpacityRef = useRef(1)
+  const translationOpacityRef = useRef(0)
+  const mRNAVisRef = useRef(1)
 
   // Compute strands from template
   const codingBases = useMemo(() => getCodingStrand(template), [template])
   const mrnaBases = useMemo(() => transcribe(template), [template])
   const numPairs = template.length
+
+  // Compute codons & amino acids for translation
+  const labCodons = useMemo(() => splitCodons(mrnaBases), [mrnaBases])
+  const { aminoAcids: labAAs, started: labStarted } = useMemo(() => translateAll(labCodons), [labCodons])
+  const numCodons = labCodons.length
+  const numAAs = labAAs.length
 
   // Helix geometry
   const { leftPositions, rightPositions } = useMemo(() => {
@@ -816,13 +841,19 @@ function LabScene({ template, active, onComplete }) {
       setPolyFront(-1)
       setMRNABuilt(0)
       setPhase('helicase')
+      setRibosomePos(0)
+      setAasBuilt(0)
+      setFolding(false)
       completedRef.current = false
+      helixOpacityRef.current = 1
+      translationOpacityRef.current = 0
+      mRNAVisRef.current = 1
     } else {
       setPhase('idle')
     }
   }, [active])
 
-  // Helicase advances
+  // ── Helicase advances ──
   useEffect(() => {
     if (phase !== 'helicase' && phase !== 'polymerase') return
     if (helicaseFront >= numPairs - 1) return
@@ -830,7 +861,7 @@ function LabScene({ template, active, onComplete }) {
     return () => clearTimeout(timer)
   }, [phase, helicaseFront, numPairs])
 
-  // Polymerase follows 3 pairs behind helicase
+  // ── Polymerase follows 3 pairs behind helicase ──
   useEffect(() => {
     if (helicaseFront >= 2 && phase === 'helicase') setPhase('polymerase')
   }, [helicaseFront, phase])
@@ -848,77 +879,332 @@ function LabScene({ template, active, onComplete }) {
     }
   }, [phase, polyFront, helicaseFront, numPairs])
 
-  // Complete when polymerase finishes
+  // ── Polymerase done → mRNA drifts ──
   useEffect(() => {
-    if (polyFront >= numPairs - 1 && !completedRef.current) {
-      completedRef.current = true
-      const timer = setTimeout(() => {
-        setPhase('done')
-        if (onComplete) onComplete()
-      }, 400)
+    if (phase !== 'polymerase') return
+    if (polyFront >= numPairs - 1) {
+      const timer = setTimeout(() => setPhase('drift'), 300)
       return () => clearTimeout(timer)
     }
-  }, [polyFront, numPairs, onComplete])
+  }, [phase, polyFront, numPairs])
 
+  // ── Drift → transition to translation ──
+  useEffect(() => {
+    if (phase !== 'drift') return
+    const timer = setTimeout(() => {
+      setPhase('translation')
+      // Start with Met already recognized if start codon exists
+      if (labStarted) { setRibosomePos(0); setAasBuilt(1) }
+    }, 1200)
+    return () => clearTimeout(timer)
+  }, [phase, labStarted])
+
+  // ── Translation: ribosome reads codons ──
+  useEffect(() => {
+    if (phase !== 'translation') return
+    if (!labStarted || aasBuilt >= numAAs) {
+      // Done translating — move to folding
+      const timer = setTimeout(() => setPhase('folding'), 400)
+      return () => clearTimeout(timer)
+    }
+    const timer = setTimeout(() => {
+      setRibosomePos(p => p + 1)
+      setAasBuilt(a => a + 1)
+    }, LAB_TRANSLATE_SPEED)
+    return () => clearTimeout(timer)
+  }, [phase, aasBuilt, numAAs, labStarted])
+
+  // ── Folding phase ──
+  useEffect(() => {
+    if (phase !== 'folding') return
+    setFolding(true)
+    const timer = setTimeout(() => {
+      setPhase('done')
+      if (onComplete && !completedRef.current) {
+        completedRef.current = true
+        onComplete()
+      }
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [phase, onComplete])
+
+  // ── Rendering loop ──
   useFrame((_, delta) => {
+    // Helix separation
     const sep = separationRef.current
     for (let i = 0; i < numPairs; i++) {
       let target = 0
       if (phase === 'helicase' || phase === 'polymerase') {
         target = i <= helicaseFront ? 1 : 0
-      } else if (phase === 'done') {
-        target = 0 // rezip
+      } else if (phase === 'drift') {
+        target = 1 // still unzipped while mRNA drifts
       }
+      // After drift, helix rezips (target stays 0)
       sep[i] = damp(sep[i], target, 4, delta)
     }
 
+    // Crossfade helix vs translation
+    const showHelix = phase === 'idle' || phase === 'helicase' || phase === 'polymerase' || phase === 'drift'
+    const showTranslation = phase === 'translation' || phase === 'folding' || phase === 'done'
+    helixOpacityRef.current = damp(helixOpacityRef.current, showHelix ? 1 : 0, 3, delta)
+    translationOpacityRef.current = damp(translationOpacityRef.current, showTranslation ? 1 : 0, 3, delta)
+
+    // mRNA fades during folding
+    mRNAVisRef.current = damp(mRNAVisRef.current, folding ? 0 : 1, 2.5, delta)
+
     if (groupRef.current) {
-      groupRef.current.rotation.y += delta * (phase === 'idle' ? 0.25 : 0.015)
+      groupRef.current.rotation.y += delta * (phase === 'idle' ? 0.25 : 0)
     }
+  })
+
+  const ribX = MRNA_X_START + ribosomePos * MRNA_SPACING * 3 + MRNA_SPACING * 1.5
+
+  return (
+    <>
+      {/* ── Transcription (helix) group ── */}
+      <LabFadeGroup ref={groupRef} opacityRef={helixOpacityRef}>
+        <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} />
+        <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} isTemplate />
+
+        {template.map((base, i) => (
+          <BasePair key={i} index={i}
+            leftBase={codingBases[i]} rightBase={base}
+            leftPos={leftPositions[i]} rightPos={rightPositions[i]}
+            separationRef={separationRef} />
+        ))}
+
+        {(phase === 'helicase' || phase === 'polymerase') && helicaseFront >= 0 && (
+          <HelicaseMesh
+            leftPositions={leftPositions}
+            rightPositions={rightPositions}
+            frontIndex={helicaseFront}
+            separationRef={separationRef}
+          />
+        )}
+
+        {phase === 'polymerase' && polyFront >= 0 && (
+          <PolymeraseMesh
+            positions={rightPositions}
+            separationRef={separationRef}
+            currentIndex={polyFront}
+            approaching={false}
+          />
+        )}
+
+        {mRNABuilt > 0 && phase !== 'translation' && phase !== 'folding' && phase !== 'done' && (
+          <LabMRNAStrand
+            bases={mrnaBases}
+            positions={rightPositions}
+            separationRef={separationRef}
+            builtCount={mRNABuilt}
+            drifting={phase === 'drift'}
+          />
+        )}
+      </LabFadeGroup>
+
+      {/* ── Translation group ── */}
+      <LabTranslationScene
+        opacityRef={translationOpacityRef}
+        mRNAVisRef={mRNAVisRef}
+        mrnaBases={mrnaBases}
+        labCodons={labCodons}
+        labAAs={labAAs}
+        ribosomePos={ribosomePos}
+        ribX={ribX}
+        aasBuilt={aasBuilt}
+        folding={folding}
+        phase={phase}
+      />
+    </>
+  )
+}
+
+// FadeGroup for the lab scene
+const LabFadeGroup = forwardRef(function LabFadeGroup({ opacityRef, children }, ref) {
+  const innerRef = useRef()
+  const groupRef = ref || innerRef
+  useFrame(() => {
+    if (!groupRef.current) return
+    const op = opacityRef.current
+    const s = Math.max(0.001, op)
+    groupRef.current.scale.setScalar(s)
+    groupRef.current.visible = op > 0.01
+  })
+  return <group ref={groupRef}>{children}</group>
+})
+
+// ── Lab Translation Scene ────────────────────────────────────
+function LabTranslationScene({ opacityRef, mRNAVisRef, mrnaBases, labCodons, labAAs, ribosomePos, ribX, aasBuilt, folding, phase }) {
+  const groupRef = useRef()
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    const op = opacityRef.current
+    groupRef.current.scale.setScalar(Math.max(0.001, op))
+    groupRef.current.visible = op > 0.01
   })
 
   return (
     <group ref={groupRef}>
-      <BackboneStrand curve={leftCurve} positions={leftPositions} separationRef={separationRef} />
-      <BackboneStrand curve={rightCurve} positions={rightPositions} separationRef={separationRef} isTemplate />
+      {/* mRNA strand + ribosome */}
+      <LabMRNALayer
+        visible={mRNAVisRef}
+        mrnaBases={mrnaBases}
+        labCodons={labCodons}
+        ribosomePos={ribosomePos}
+        ribX={ribX}
+        phase={phase}
+      />
 
-      {template.map((base, i) => (
-        <BasePair key={i} index={i}
-          leftBase={codingBases[i]} rightBase={base}
-          leftPos={leftPositions[i]} rightPos={rightPositions[i]}
-          separationRef={separationRef} />
-      ))}
-
-      {/* Helicase */}
-      {(phase === 'helicase' || phase === 'polymerase') && helicaseFront >= 0 && (
-        <HelicaseMesh
-          leftPositions={leftPositions}
-          rightPositions={rightPositions}
-          frontIndex={helicaseFront}
-          separationRef={separationRef}
-        />
+      {/* Amino acid chain */}
+      {!folding && aasBuilt > 0 && (
+        <LabAminoChain aas={labAAs} aasBuilt={aasBuilt} ribX={ribX} />
       )}
 
-      {/* Polymerase on template strand */}
-      {phase === 'polymerase' && polyFront >= 0 && (
-        <PolymeraseMesh
-          positions={rightPositions}
-          separationRef={separationRef}
-          currentIndex={polyFront}
-          approaching={false}
-        />
-      )}
+      {/* Folding animation */}
+      {folding && <LabFoldingAnimation aas={labAAs} />}
+    </group>
+  )
+}
 
-      {/* mRNA being built */}
-      {mRNABuilt > 0 && (
-        <LabMRNAStrand
-          bases={mrnaBases}
-          positions={rightPositions}
-          separationRef={separationRef}
-          builtCount={mRNABuilt}
-          drifting={phase === 'done'}
-        />
+function LabMRNALayer({ visible, mrnaBases, labCodons, ribosomePos, ribX, phase }) {
+  const ref = useRef()
+
+  useFrame(() => {
+    if (!ref.current) return
+    const v = visible.current
+    ref.current.visible = v > 0.05
+    ref.current.scale.setScalar(Math.max(0.001, v))
+    ref.current.position.y = (1 - v) * -2
+  })
+
+  const isTranslating = phase === 'translation' || phase === 'folding' || phase === 'done'
+
+  return (
+    <group ref={ref}>
+      {/* Base spheres */}
+      {mrnaBases.map((base, i) => {
+        const x = MRNA_X_START + i * MRNA_SPACING
+        const isCurrentCodon = isTranslating && Math.floor(i / 3) === ribosomePos
+        return (
+          <mesh key={i} position={[x, MRNA_Y, 0]}>
+            <sphereGeometry args={[0.18, 12, 12]} />
+            <meshStandardMaterial
+              color={c(BASE_COLORS[base])} emissive={c(BASE_COLORS[base])}
+              emissiveIntensity={isCurrentCodon ? 0.8 : 0.3} roughness={0.3}
+            />
+          </mesh>
+        )
+      })}
+
+      {/* Backbone */}
+      <mesh position={[(MRNA_X_START + (mrnaBases.length - 1) * MRNA_SPACING) / 2 + MRNA_X_START / 2, MRNA_Y, 0]}>
+        <boxGeometry args={[mrnaBases.length * MRNA_SPACING, 0.04, 0.04]} />
+        <meshStandardMaterial color="#c084fc" emissive="#c084fc" emissiveIntensity={0.2} />
+      </mesh>
+
+      {/* Codon brackets */}
+      {labCodons.map((_, i) => {
+        const cx = MRNA_X_START + i * 3 * MRNA_SPACING + MRNA_SPACING
+        return (
+          <mesh key={i} position={[cx, MRNA_Y - 0.35, 0]}>
+            <boxGeometry args={[MRNA_SPACING * 2.6, 0.03, 0.03]} />
+            <meshStandardMaterial color="#475569" emissive="#475569" emissiveIntensity={0.1} />
+          </mesh>
+        )
+      })}
+
+      {/* Ribosome */}
+      {isTranslating && <RibosomeMesh targetX={ribX} y={MRNA_Y} />}
+    </group>
+  )
+}
+
+function LabAminoChain({ aas, aasBuilt, ribX }) {
+  return (
+    <group>
+      {Array.from({ length: Math.min(aasBuilt, aas.length) }, (_, i) => {
+        const codonCenterX = MRNA_X_START + i * 3 * MRNA_SPACING + MRNA_SPACING
+        const aaColor = LAB_AA_COLORS[aas[i]] || '#818cf8'
+        return <LabAASphere key={i} aa={aas[i]} color={aaColor}
+          spawnX={ribX} finalX={codonCenterX} />
+      })}
+
+      {aasBuilt > 1 && (
+        <AAConnector count={Math.min(aasBuilt, aas.length)} />
       )}
+    </group>
+  )
+}
+
+function LabAASphere({ aa, color, spawnX, finalX }) {
+  const ref = useRef()
+  const scaleRef = useRef(0)
+  const xRef = useRef(spawnX)
+  const yRef = useRef(MRNA_Y)
+  const col = useMemo(() => c(color), [color])
+
+  useFrame((_, delta) => {
+    if (!ref.current) return
+    scaleRef.current = damp(scaleRef.current, 1, 4, delta)
+    xRef.current = damp(xRef.current, finalX, 3, delta)
+    yRef.current = damp(yRef.current, AA_Y, 3, delta)
+    ref.current.scale.setScalar(scaleRef.current)
+    ref.current.position.set(xRef.current, yRef.current, 0)
+  })
+
+  return (
+    <mesh ref={ref} scale={0}>
+      <sphereGeometry args={[0.35, 16, 16]} />
+      <meshStandardMaterial color={col} emissive={col} emissiveIntensity={0.7} roughness={0.3} />
+    </mesh>
+  )
+}
+
+function LabFoldingAnimation({ aas }) {
+  const groupRef = useRef()
+  const positionsRef = useRef(
+    aas.map((_, i) => {
+      const codonX = MRNA_X_START + i * 3 * MRNA_SPACING + MRNA_SPACING
+      return {
+        current: new THREE.Vector3(codonX, AA_Y, 0),
+        target: new THREE.Vector3(
+          Math.cos((i / Math.max(aas.length, 1)) * Math.PI * 2) * 0.5,
+          Math.sin((i / Math.max(aas.length, 1)) * Math.PI * 2) * 0.5,
+          Math.sin((i / Math.max(aas.length, 1)) * Math.PI) * 0.4
+        ),
+      }
+    })
+  )
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    const children = groupRef.current.children
+    positionsRef.current.forEach((p, i) => {
+      if (!children[i]) return
+      p.current.lerp(p.target, Math.min(1, delta * 1.8))
+      children[i].position.copy(p.current)
+    })
+    groupRef.current.rotation.y += delta * 0.4
+  })
+
+  return (
+    <group ref={groupRef}>
+      {aas.map((aa, i) => {
+        const color = c(LAB_AA_COLORS[aa] || '#818cf8')
+        const codonX = MRNA_X_START + i * 3 * MRNA_SPACING + MRNA_SPACING
+        return (
+          <mesh key={i} position={[codonX, AA_Y, 0]}>
+            <sphereGeometry args={[0.45, 16, 16]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} roughness={0.3} />
+          </mesh>
+        )
+      })}
+      <mesh>
+        <sphereGeometry args={[1.0, 16, 16]} />
+        <meshStandardMaterial color="#818cf8" emissive="#818cf8" emissiveIntensity={0.15}
+          transparent opacity={0.1} roughness={0.5} />
+      </mesh>
     </group>
   )
 }
