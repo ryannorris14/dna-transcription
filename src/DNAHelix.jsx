@@ -869,7 +869,9 @@ function LabScene({ template, active, onComplete }) {
   useEffect(() => {
     if (phase !== 'polymerase') return
     if (polyFront >= numPairs - 1) return
-    const target = Math.min(helicaseFront - 2, numPairs - 1)
+    // Once helicase finishes, polymerase catches up to the end
+    const helicaseDone = helicaseFront >= numPairs - 1
+    const target = helicaseDone ? numPairs - 1 : Math.min(helicaseFront - 2, numPairs - 1)
     if (polyFront < target) {
       const timer = setTimeout(() => {
         setPolyFront(f => f + 1)
