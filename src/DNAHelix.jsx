@@ -834,7 +834,7 @@ function LabScene({ template, active, onComplete }) {
     return new THREE.CatmullRomCurve3(pts)
   }, [rightPositions])
 
-  // Reset when active changes
+  // Reset all state when active changes
   useEffect(() => {
     if (active) {
       setHelicaseFront(-1)
@@ -849,7 +849,17 @@ function LabScene({ template, active, onComplete }) {
       translationOpacityRef.current = 0
       mRNAVisRef.current = 1
     } else {
+      // Full reset — clean helix, no leftover mRNA/enzymes
       setPhase('idle')
+      setHelicaseFront(-1)
+      setPolyFront(-1)
+      setMRNABuilt(0)
+      setRibosomePos(0)
+      setAasBuilt(0)
+      setFolding(false)
+      helixOpacityRef.current = 1
+      translationOpacityRef.current = 0
+      mRNAVisRef.current = 1
     }
   }, [active])
 

@@ -1583,6 +1583,53 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* ── Creature Summary (below creature display) ───────────── */
+.creature-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-protein {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.aa-badge.mini {
+  padding: 3px 7px;
+  font-size: 0.65rem;
+}
+
+.summary-traits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-trait {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.summary-trait-text {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
 /* ── Creature Panel ────────────────────────────────────────── */
 .lab-creature-panel {
   display: flex;

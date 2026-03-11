@@ -350,7 +350,7 @@ export default function CreatureLab() {
         </div>
       </div>
 
-      {/* Right: Creature Display */}
+      {/* Right: Creature Display + Summary */}
       <div className="lab-creature-panel">
         <div className="creature-display card">
           {/* Dual pane: old creature + pending new */}
@@ -424,6 +424,44 @@ export default function CreatureLab() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* Protein & Traits summary — always visible below creature */}
+        {stageIdx >= 5 && (
+          <div className="creature-summary card">
+            {/* Protein chain */}
+            <div className="summary-section">
+              <div className="section-label">Protein</div>
+              <div className="summary-protein">
+                {aminoAcids.length > 0 ? aminoAcids.map((aa, i) => (
+                  <span key={i} className="aa-badge mini"
+                    title={AA_INFO[aa] ? `${AA_INFO[aa].name} (${AA_INFO[aa].group})` : aa}
+                  >{aa}</span>
+                )) : (
+                  <span className="no-data">No protein</span>
+                )}
+              </div>
+            </div>
+
+            {/* Traits */}
+            {traits && (
+              <div className="summary-section">
+                <div className="section-label">Traits</div>
+                <div className="summary-traits">
+                  <div className="summary-trait">
+                    <span className="trait-swatch" style={{ background: traits.bodyColor }} />
+                    <span className="summary-trait-text">{traits.bodyShape}</span>
+                  </div>
+                  <div className="summary-trait">
+                    <span className="summary-trait-text">{traits.eyes.count}x {traits.eyes.size} {traits.eyes.shape} eyes</span>
+                  </div>
+                  <div className="summary-trait">
+                    <span className="summary-trait-text">{traits.accessory !== 'none' ? traits.accessory : 'no accessory'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
