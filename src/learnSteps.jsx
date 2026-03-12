@@ -49,7 +49,7 @@ export const LEARN_STEPS = [
   {
     title: 'Meet the DNA',
     phase: 'Introduction',
-    callout: 'DNA is the instruction manual for life. Every cell in your body contains a complete copy — about 6 feet of it, coiled up tight!',
+    callout: 'DNA is like an instruction manual for building and running your body. Almost every cell contains a complete copy — about 6 feet of it, coiled up so tightly it fits inside a space too small to see.',
     helixState: 'full',
     visual: (
       <div className="step-content">
