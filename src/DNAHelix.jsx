@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect, forwardRef } from 'react'
+import { useRef, useMemo, useState, useEffect, forwardRef, Component } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -34,8 +34,8 @@ function damp(current, target, speed, delta) {
 // ── Step mapping ─────────────────────────────────────────────
 // 0: Meet DNA           → rotating helix
 // 1: Base Pairing       → rotating helix
-// 2: Helicase Unzips    → unzip animation
-// 3: RNA Pol Binds      → polymerase flies in and attaches
+// 2: RNA Pol Unwinds    → unzip animation (RNA Polymerase opens DNA)
+// 3: Transcription Rules → polymerase positioned at template
 // 4: Building mRNA      → polymerase slides, mRNA builds
 // 5: mRNA Complete      → rezip, mRNA drifts to the side
 // 6: Meet Ribosome      → translation scene fades in (mRNA + ribosome)
@@ -142,7 +142,7 @@ function HelixScene({ step = 0 }) {
             separationRef={separationRef} />
         ))}
 
-        {/* Helicase — visible fork traveling along DNA during step 2 */}
+        {/* RNA Polymerase unwinding — visible fork traveling along DNA during step 2 */}
         {showHelicase && helicaseFront >= 0 && (
           <HelicaseMesh
             leftPositions={leftPositions}
@@ -179,7 +179,7 @@ function HelixScene({ step = 0 }) {
   )
 }
 
-// ── Helicase — wedge-shaped fork at the unzip front ─────────
+// ── RNA Polymerase unwinding fork at the unzip front ─────────
 function HelicaseMesh({ leftPositions, rightPositions, frontIndex, separationRef }) {
   const ref = useRef()
   const glowRef = useRef()
@@ -204,15 +204,15 @@ function HelicaseMesh({ leftPositions, rightPositions, frontIndex, separationRef
 
   return (
     <group ref={ref}>
-      {/* Main body */}
+      {/* Main body — gold to match polymerase (same enzyme) */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <coneGeometry args={[0.45, 0.6, 6]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={0.7} roughness={0.3} />
+        <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.7} roughness={0.3} />
       </mesh>
       {/* Glow */}
       <mesh ref={glowRef}>
         <sphereGeometry args={[0.55, 12, 12]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={0.3} transparent opacity={0.2} />
+        <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.3} transparent opacity={0.2} />
       </mesh>
     </group>
   )
@@ -744,24 +744,62 @@ function FoldingAnimation() {
   )
 }
 
+// ── WebGL error boundary ─────────────────────────────────────
+class WebGLErrorBoundary extends Component {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) return this.props.fallback
+    return this.props.children
+  }
+}
+
+function WebGLFallback({ className }) {
+  return (
+    <div className={`webgl-fallback ${className || ''}`}>
+      <div className="webgl-fallback-content">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+        <p>3D view requires WebGL</p>
+        <p className="webgl-hint">Try enabling hardware acceleration in your browser settings, or updating your graphics drivers.</p>
+      </div>
+    </div>
+  )
+}
+
+function isWebGLAvailable() {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')))
+  } catch {
+    return false
+  }
+}
+
 // ── Exported Canvas (Learn Mode) ─────────────────────────────
 export default function DNAHelix({ step = 0, className = '' }) {
+  const [webGL] = useState(isWebGLAvailable)
+  if (!webGL) return <div className={`dna-helix-container ${className}`}><WebGLFallback /></div>
+
   return (
     <div className={`dna-helix-container ${className}`}>
-      <Canvas
-        camera={{ position: [0, 0, 14], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-        style={{ background: 'transparent' }}
-      >
-        <ambientLight intensity={0.5} />
-        <pointLight position={[5, 5, 5]} intensity={0.8} />
-        <pointLight position={[-5, -3, 3]} intensity={0.4} color="#818cf8" />
-        <pointLight position={[0, -5, 5]} intensity={0.3} color="#4ade80" />
+      <WebGLErrorBoundary fallback={<WebGLFallback />}>
+        <Canvas
+          camera={{ position: [0, 0, 14], fov: 45 }}
+          gl={{ antialias: true, alpha: true }}
+          style={{ background: 'transparent' }}
+        >
+          <ambientLight intensity={0.5} />
+          <pointLight position={[5, 5, 5]} intensity={0.8} />
+          <pointLight position={[-5, -3, 3]} intensity={0.4} color="#818cf8" />
+          <pointLight position={[0, -5, 5]} intensity={0.3} color="#4ade80" />
 
-        <HelixScene step={step} />
+          <HelixScene step={step} />
 
-        <OrbitControls enablePan={false} minDistance={5} maxDistance={16} autoRotate={false} />
-      </Canvas>
+          <OrbitControls enablePan={false} minDistance={5} maxDistance={16} autoRotate={false} />
+        </Canvas>
+      </WebGLErrorBoundary>
     </div>
   )
 }
@@ -782,7 +820,7 @@ const LAB_AA_COLORS = {
   His: '#f9ca24', Asp: '#ff6348', Glu: '#eb4d4b', Gly: '#c8d6e5',
 }
 
-// Phases: idle → helicase → polymerase → drift → translation → folding → done
+// Phases: idle → helicase (unwinding) → polymerase (reading) → drift → translation → folding → done
 function LabScene({ template, active, onComplete }) {
   const groupRef = useRef()
   const separationRef = useRef(new Float32Array(NUM_PAIRS).fill(0))
@@ -1233,22 +1271,27 @@ function LabMRNAStrand({ bases, positions, separationRef, builtCount, drifting }
 }
 
 export function LabTranscriptionCanvas({ template, active, onComplete, className = '' }) {
+  const [webGL] = useState(isWebGLAvailable)
+  if (!webGL) return <div className={`lab-transcription-container ${className}`}><WebGLFallback /></div>
+
   return (
     <div className={`lab-transcription-container ${className}`}>
-      <Canvas
-        camera={{ position: [0, 0, 14], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-        style={{ background: 'transparent' }}
-      >
-        <ambientLight intensity={0.5} />
-        <pointLight position={[5, 5, 5]} intensity={0.8} />
-        <pointLight position={[-5, -3, 3]} intensity={0.4} color="#818cf8" />
-        <pointLight position={[0, -5, 5]} intensity={0.3} color="#4ade80" />
+      <WebGLErrorBoundary fallback={<WebGLFallback />}>
+        <Canvas
+          camera={{ position: [0, 0, 14], fov: 45 }}
+          gl={{ antialias: true, alpha: true }}
+          style={{ background: 'transparent' }}
+        >
+          <ambientLight intensity={0.5} />
+          <pointLight position={[5, 5, 5]} intensity={0.8} />
+          <pointLight position={[-5, -3, 3]} intensity={0.4} color="#818cf8" />
+          <pointLight position={[0, -5, 5]} intensity={0.3} color="#4ade80" />
 
-        <LabScene template={template} active={active} onComplete={onComplete} />
+          <LabScene template={template} active={active} onComplete={onComplete} />
 
-        <OrbitControls enablePan={false} minDistance={8} maxDistance={18} autoRotate={false} />
-      </Canvas>
+          <OrbitControls enablePan={false} minDistance={8} maxDistance={18} autoRotate={false} />
+        </Canvas>
+      </WebGLErrorBoundary>
     </div>
   )
 }

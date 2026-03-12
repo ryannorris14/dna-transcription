@@ -80,8 +80,8 @@ export default function LearnMode() {
           <DNAHelix step={step} />
           {/* Overlay label on the 3D panel */}
           <div className="helix-overlay-label">
-            {step === 2 && 'Helicase unzipping the DNA...'}
-            {step === 3 && 'RNA Polymerase binding to template...'}
+            {step === 2 && 'RNA Polymerase unwinding the DNA...'}
+            {step === 3 && 'RNA Polymerase reading the template...'}
             {step === 4 && 'RNA Polymerase building mRNA...'}
             {step === 5 && 'DNA rezipping — mRNA released!'}
             {step === 6 && 'mRNA arriving at ribosome...'}

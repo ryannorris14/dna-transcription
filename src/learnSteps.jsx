@@ -1,5 +1,5 @@
 import { BASE_COLORS } from './biology'
-import { UnzipIcon, PolymeraseIcon, RibosomeIcon, HelixIcon, StrandIcon, ProteinIcon } from './Icons'
+import { PolymeraseIcon, RibosomeIcon, HelixIcon, StrandIcon, ProteinIcon } from './Icons'
 
 // Helper: render a colored base letter inline
 function B({ base }) {
@@ -110,19 +110,19 @@ export const LEARN_STEPS = [
     ),
   },
 
-  // ── Step 3: Helicase Unzips ────────────────────────────────
+  // ── Step 3: RNA Polymerase Unwinds ──────────────────────────
   {
-    title: 'Helicase Unzips the DNA',
+    title: 'RNA Polymerase Unwinds the DNA',
     phase: 'Transcription',
-    callout: 'An enzyme called helicase arrives and "unzips" the DNA by breaking the bonds between base pairs. Time to read the code!',
+    callout: 'An enzyme called RNA Polymerase finds the gene and begins separating the two DNA strands so the template can be read.',
     helixState: 'unzipping',
     visual: (
       <div className="step-content">
         <div className="step-diagram">
           <div className="enzyme-card">
-            <div className="enzyme-icon"><UnzipIcon size={40} /></div>
-            <h3>Helicase</h3>
-            <p>This enzyme separates the two strands of DNA so they can be read. Think of it as unzipping a zipper!</p>
+            <div className="enzyme-icon"><PolymeraseIcon size={40} /></div>
+            <h3>RNA Polymerase</h3>
+            <p>This molecular machine finds the gene's start point (the <strong>promoter</strong>) and opens up the double helix — like unzipping a zipper!</p>
           </div>
           <div className="strand-preview">
             <Seq bases={CODING} label="Coding 5'→3'" />
@@ -134,20 +134,20 @@ export const LEARN_STEPS = [
     ),
   },
 
-  // ── Step 4: RNA Polymerase Binds ───────────────────────────
+  // ── Step 4: Transcription Rules ────────────────────────────
   {
-    title: 'RNA Polymerase Binds',
+    title: 'Transcription Rules',
     phase: 'Transcription',
-    callout: 'RNA Polymerase attaches to the template strand. It will read the DNA and build a messenger RNA (mRNA) copy.',
+    callout: 'RNA Polymerase reads the template strand and builds a messenger RNA (mRNA) copy using complementary base pairing.',
     helixState: 'unzipped',
     visual: (
       <div className="step-content">
         <div className="step-diagram">
           <div className="enzyme-card">
             <div className="enzyme-icon"><PolymeraseIcon size={40} /></div>
-            <h3>RNA Polymerase</h3>
-            <p>This molecular machine reads the <strong>template strand</strong> (3'→5') and builds a matching mRNA strand.</p>
-            <p style={{ marginTop: 8 }}>It uses almost the same base pairing rules, except <B base="U" /> (Uracil) replaces <B base="T" /> (Thymine) in RNA!</p>
+            <h3>Reading the Template</h3>
+            <p>RNA Polymerase reads the <strong>template strand</strong> (3'→5') and builds a complementary mRNA strand.</p>
+            <p style={{ marginTop: 8 }}>It uses the same base pairing rules as DNA, except <B base="U" /> (Uracil) replaces <B base="T" /> (Thymine) in RNA!</p>
           </div>
           <div className="rule-box">
             <div className="rule-item"><B base="A" /> in DNA → <B base="U" /> in mRNA</div>
@@ -242,7 +242,7 @@ export const LEARN_STEPS = [
             <div className="codon-arrow">→</div>
             <div className="aa-badge met">Met</div>
           </div>
-          <p className="step-note"><strong>AUG</strong> is special — it's both the start signal AND codes for Methionine. Every protein begins with Met!</p>
+          <p className="step-note"><strong>AUG</strong> is special — it's both the start signal AND codes for Methionine, the first amino acid added during translation.</p>
         </div>
       </div>
     ),
@@ -322,7 +322,7 @@ export const LEARN_STEPS = [
   {
     title: 'The Central Dogma',
     phase: 'Summary',
-    callout: 'DNA → RNA → Protein. This is the central dogma of molecular biology — the flow of genetic information in all living things!',
+    callout: 'DNA → RNA → Protein. This is the central dogma of molecular biology — the fundamental flow of genetic information in cells.',
     helixState: 'background',
     visual: (
       <div className="step-content">

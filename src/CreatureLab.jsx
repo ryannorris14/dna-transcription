@@ -342,7 +342,7 @@ export default function CreatureLab() {
             onComplete={handleTranscriptionComplete}
           />
           <div className="transcription-status">
-            {transcribing ? 'Helicase → RNA Polymerase → Ribosome → Protein Folding...' :
+            {transcribing ? 'RNA Polymerase → Ribosome → Protein Folding...' :
              isAnimating ? 'Building creature...' :
              dirty ? 'Press Go! to transcribe' :
              'Edit DNA to begin'}
@@ -477,7 +477,7 @@ function CodonReferenceTable() {
     return map
   }, [])
 
-  const displayOrder = ['Met', 'Gln', 'Tyr', 'Ala', 'Ser', 'Leu', 'Val', 'Pro', 'Thr', 'Phe', 'Trp', 'His', 'Lys', 'Arg', 'Gly', 'STOP']
+  const displayOrder = ['Met', 'Gln', 'Tyr', 'Ala', 'Ser', 'Leu', 'Ile', 'Val', 'Pro', 'Thr', 'Asn', 'Phe', 'Trp', 'His', 'Lys', 'Arg', 'Asp', 'Glu', 'Cys', 'Gly', 'STOP']
 
   return (
     <div className="codon-table-content">
