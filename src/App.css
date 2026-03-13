@@ -1475,9 +1475,14 @@ body {
 
 .editor-strand {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.codon-triplet {
+  display: flex;
+  gap: 4px;
 }
 
 /* ── Go Button ─────────────────────────────────────────────── */

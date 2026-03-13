@@ -145,16 +145,23 @@ export default function CreatureLab() {
         {/* Template strand */}
         <div className="section-label">Template Strand (3'→5') — click to mutate</div>
         <div className="editor-strand">
-          {template.map((base, i) => (
-            <motion.button
-              key={i}
-              className={`base-btn ${base} ${changedIndex === i ? 'glow' : ''}`}
-              onClick={() => handleBaseClick(i)}
-              whileTap={{ scale: 0.9 }}
-              title={`Position ${i + 1}: ${base} → ${cycleBase(base)}`}
-            >
-              {base}
-            </motion.button>
+          {Array.from({ length: Math.ceil(template.length / 3) }, (_, g) => (
+            <div key={g} className="codon-triplet">
+              {template.slice(g * 3, g * 3 + 3).map((base, j) => {
+                const i = g * 3 + j
+                return (
+                  <motion.button
+                    key={i}
+                    className={`base-btn ${base} ${changedIndex === i ? 'glow' : ''}`}
+                    onClick={() => handleBaseClick(i)}
+                    whileTap={{ scale: 0.9 }}
+                    title={`Position ${i + 1}: ${base} → ${cycleBase(base)}`}
+                  >
+                    {base}
+                  </motion.button>
+                )
+              })}
+            </div>
           ))}
         </div>
 
