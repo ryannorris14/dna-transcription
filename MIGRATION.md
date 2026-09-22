@@ -4,6 +4,34 @@ Generated 2026-09-21 ahead of a full Windows 10 → Ubuntu 26.04 wipe/rebuild.
 Everything below is derived from what was actually on disk/in git at that time —
 "unknown" is used where nothing observable answered the question.
 
+## 0. Linux restore — DONE 2026-09-21 (Ubuntu 26.04, user `ryan`)
+
+- Cloned fresh from GitHub (`master` @ `ac516f7`) into
+  `/home/ryan/projects/sci-sims-dna-transcription` (note: NOT the old
+  `trillium/sci-sims/...` layout suggested in section 7).
+- Nothing untracked needed copying from the backup (no `.env`, no secrets;
+  `dist/` regenerated).
+- Line endings: all tracked files are already LF; no `.gitattributes` needed,
+  nothing converted.
+- Windows-isms: none found (no `C:\` paths, no `.cmd`/`.ps1`, imports match
+  file-name case).
+- Claude memory: `.claude/settings.local.json` (gitignored, machine-local) sets
+  `autoMemoryDirectory` to `/home/ryan/projects/sci-sims-dna-transcription/.claude/agent-memory`,
+  so the committed memory is used in place — the copy step in section 7.5 is
+  no longer needed.
+- `npm ci` on Node 24 / npm 11: npm 11 skips install scripts by default, so
+  puppeteer did NOT download its bundled Chromium (it is unused by any script;
+  system Chrome is at `/usr/bin/google-chrome`). esbuild works without its
+  postinstall (platform binary comes via optional dependency). If puppeteer's
+  own Chromium is ever needed: `npm rebuild puppeteer` (or
+  `npm ci --allow-scripts=puppeteer`), or point it at
+  `PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome`.
+- Verified: `npm run build` succeeds (only the usual >500 kB chunk warning);
+  `vite preview` served the app and headless Chrome rendered it (Learn Mode /
+  Creature Lab UI present).
+- Not done / for Ryan: confirm the Vercel project is still linked to this repo
+  (push to `master` auto-deploys). No deploy was run from this machine.
+
 ## 1. What this project is
 
 A single-page React app teaching the central dogma of molecular biology
